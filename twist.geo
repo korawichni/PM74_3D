@@ -25,7 +25,7 @@ l~{1}() = {1:4};
 
 Line Loop(1) = l~{1}();
 
-N = DefineNumber[3*2, Name "Parameters/Number of slices", Min 2, Max 10, Step 1];
+N = DefineNumber[3, Name "Parameters/Number of slices", Min 2, Max 10, Step 1];
 angle = DefineNumber[Pi/4*8, Name "Parameters/Angle", Min 0, Max 2*Pi, Step 0.1];
 For i In {2:N}
   // l~{i}() = Translate{0,0,1/(N-1)}{ Duplicata{ Line{l~{i-1}()}; } };
@@ -35,12 +35,11 @@ For i In {2:N}
   Line Loop(i) = l~{i}();
 EndFor
 
-//ThruSections(1) = {1:N};
-/*
+ThruSections(1) = {1:N};
+
 Box(2) = {-0.5,-0.5,0, 1,1,1};
 
 Characteristic Length { PointsOf{ Volume{1}; } } = lc2;
 Characteristic Length { PointsOf{ Volume{2}; } } = lc1;
 
 BooleanFragments{ Volume{1,2}; Delete; }{}
-*/
