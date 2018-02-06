@@ -1,3 +1,5 @@
+// geometry of winding and the mesh are ok
+
 mm=1e-3;
 ro  = (74-2.5)/2*mm; // outer-most radius
 ri1 = (57.5+1.8)/2*mm + 1*mm;  // second-most radius //add to mesh easily
@@ -9,16 +11,117 @@ ho = 59*mm; // Height
 
 ag=3.8*mm;
 // initial coordinate of the center of the coil in XY plane, where Y is height
-rp = 0.0043/2; interwire_pri = 0.006;//0.005065; // 0.003;// modified because the cross section shows 5 circles instead of 4 circles
-rs = 0.00252/2; interwire_sec = 0.004;//0.003676; //0.003;//
+rp = 0.0043/2; interwire_pri = 0.0035;//0.005065; // 0.003;// modified because the cross section shows 5 circles instead of 4 circles
+rs = 0.00252/2; interwire_sec = 0.003;//0.003676; //0.003;//
 thick_insul = 5e-5;
 Np = 4; Ns = 6;
 lcs0 = 3*rs;
 lcinf = ho*1;
-// Try changing the order of the fragment to create the space
+
+
 //=============================================================//
+
 SetFactory("OpenCASCADE");
 
+
+Macro DrawWinding
+  // clear arrays
+  llspiral() = {}; cable = {};
+
+  // Need detail of the point {x0,y0,z0,lc0} and the radius
+  // Need the NoOfTurn
+  
+  // Straight part: cable(0)
+  surf_init(0) =news; Disk(news) = {x0, y0, z0, r};
+  aux()   = Extrude{0.,0.,-z0}{ Surface{surf_init(0)}; Layers{_use_layers}; };
+  cable(0) = aux(1); // Get the volume from aux(1)
+	
+	
+  // Top extruded surface is aux(0)
+  aux_l() = Boundary{ Surface{aux(0)}; }; // Get the line loop 
+
+  llspiral(0) = newll; Line Loop(newll) = aux_l(); // preparing to use thrusection
+  For i In {1:section-1}
+    aux_l() = Translate{0,-(interwire+r*2+thick_insul*2)*NoOfTurn/(section-1),0}{ Duplicata{ Line{aux_l()}; } };
+    Rotate {{0, 1, 0}, {0, 0, 0}, angle/(section-1)} { Line{aux_l()}; }
+    llspiral() += newll; Line Loop(newll) = aux_l(); // collect the line loop to use thrusection
+  EndFor
+
+  // Spiral part
+  For i In {1:#llspiral()-nns+1:nns}
+    k =  (i < #llspiral()-nns) ? 0 : 1 ;
+	//Printf('i=%f, k=%f, length=%f',i,k,#llspiral());
+    cable() += newv; ThruSections(newv) = llspiral({i-1:i-1+nns-k});
+  EndFor
+  Printf('cable=',cable());
+  
+  // Ending straight part
+  surf_init(1) = news; Plane Surface(news) = llspiral(#llspiral()-1);
+  aux() = Extrude{z0,0.,0.}{ Surface{surf_init(1)}; Layers{_use_layers}; };
+  cable() += aux(1);
+
+  BooleanFragments{ Volume{cable()}; }{} // for some reasons, it adds the redundant volume of winding_sec0
+  
+Return
+
+//======================================================================================
+
+//xp0 = -0.022775; yp0 = 0.0141975 + rp; zp0 = 0; lcp = 1*rp;
+xp0 = 0.022775; yp0 = 0.0148+0.001; zp0 = 2*ro; lcp = 3*rp;
+// xs0 = 0.01781; ys0 = 0.01574; zs0 = 0; lcs0 = 3*rs;
+// xs1 = 0.02774; ys1 = 0.01574; zs1 = 0; lcs1 = 3*rs;
+xs0 = 0.01781; ys0 = 0.01686; zs0 = 2*ro; lcs0 = 2*rs;
+xs1 = 0.02774; ys1 = 0.01686; zs1 = 2*ro; lcs1 = 3*rs;
+
+// The number of section cannot be too low otherwise the spiral will deviate from the path and hit the core
+
+
+_use_layers = 0;
+nns = 10;
+
+//================ Primary winding ===========================//
+x0 = xp0; y0 = yp0; z0 = zp0; r = rp;
+section = nns*Np; NoOfTurn = Np; interwire = interwire_pri; angle = Pi*(2*Np-0.5);
+
+Call DrawWinding;
+winding_pri() = cable();
+
+
+//================ Secondary winding 0 ===========================//
+x0 = xs0; y0 = ys0; z0 = zs0; r = rs;
+section = nns*Ns; NoOfTurn = Ns; interwire = interwire_sec; angle = Pi*(2*Ns-0.5);
+
+
+Call DrawWinding;
+winding_sec0() = cable();
+
+
+//================ Secondary winding 1 ===========================//
+x0 = xs1; y0 = ys1; z0 = zs1; r = rs;
+section = nns*Ns; NoOfTurn = Ns; interwire = interwire_sec; angle = Pi*(2*Ns-0.5);
+
+Call DrawWinding;
+winding_sec1() = cable();
+
+
+all_vol() = Volume '*';
+Characteristic Length { PointsOf{ Volume{all_vol()}; } } = lcs0;
+  Printf('all_vol=',all_vol());
+Printf('pri=',winding_pri());
+Printf('sec0=',winding_sec0());
+all_vol() -= {winding_pri(),winding_sec0(), winding_sec1()}; // to find the redundant volume = all - needed volumes
+  Printf('all_vol_after1=',all_vol());
+Recursive Delete { Volume{all_vol()}; } // get rid of the redundant volume
+  Printf('all_vol_after2=',all_vol());
+
+  //winding_pri() = BooleanUnion{ Volume{winding_sec0()}; }{};
+  
+Recursive Color Red  { Volume{winding_pri()};}
+Recursive Color Green{ Volume{winding_sec0()};}
+Recursive Color Cyan { Volume{winding_sec1()};}
+
+
+//========================== Core ==================================//
 If (0)
 
 vC_out() +=newv; Cylinder(newv) = {0, -ho/2, 0, 0, ho, 0, ro, 2*Pi}; // Outer-most cylinder
@@ -84,253 +187,23 @@ Characteristic Length { PointsOf{ Volume{vC()}; } } = lcs0*2;
 
 EndIf
 
-/*
+//================= Air Around ===================================//
+//pri() = BooleanUnion{ Volume{winding_pri()}; }{};
+air_around = newv;
+zs0 = zs0*1.5;
+Box(air_around) = {-zs0, -zs0, zs0, 2*zs0, 2*zs0, -2*zs0};
+//Characteristic Length { PointsOf{ Volume{air_around}; } } = lcs0;
+//air() = BooleanDifference{ Volume{air_around()}; Delete;}{ Volume{vC()}; };
 
-/* 
-vC()+=newv; Cylinder(newv) = {0, -ho/2, 0, 0, ho, 0, ro, 2*Pi}; // Outer-most cylinder
-vC()+=newv; Cylinder(newv) = {0, -h/2, 0, 0, h, 0, ri1, 2*Pi};  // Second-most cylinder
-vC()+=newv; Cylinder(newv) = {0, -h/2, 0, 0, h, 0, ri2, 2*Pi}; // Center-post leg
-vC()+=newv; Cylinder(newv) = {0, -ho/2, 0, 0, ho, 0, ri3, 2*Pi}; // hole in the center
+//air() = BooleanDifference{ Volume{air_around}; Delete;}{ Volume{winding_pri()}; };  // cannot use boolean difference
+//air() = BooleanDifference{ Volume{air()}; Delete;}{ Volume{winding_sec0()}; };
+//,winding_pri(),winding_sec0(),winding_sec1()
+// vol_model() = BooleanDifference{ Volume{air_around}; Delete; }{ Volume{vC(),winding_pri(),winding_sec0(),winding_sec1()}; Delete; };
 
-// Auxiliary cylinders to cut off the core
-aux()+=newv; Cylinder(newv) = {0, -ho/2, 2.6*ro, 0, ho, 0, 2*ro, 2*Pi};
-aux()+=newv; Cylinder(newv) = {0, -ho/2, -2.6*ro, 0, ho, 0, 2*ro, 2*Pi};
+BooleanFragments{ Volume{air_around,winding_sec0(),winding_sec1(),winding_pri()}; Delete; }{}
 
-// Airgap cylinder
-vAg()+=newv; Cylinder(newv) = {0, -ag/2, 0, 0, ag, 0, ri2, 2*Pi};
-
-// Cut off the core
-vC() = BooleanDifference{ Volume{vC()}; Delete; }{ Volume{aux()}; Delete; };
-// Make the airgap
-vC() = BooleanDifference{ Volume{vC()}; Delete; }{ Volume{vAg()}; Delete; };
-
- */
-//Printf("", vC()); //0:20 1:21 2:22 3:23
-
-//new_vol() = BooleanFragments{ Volume{vC()}; Delete; }{};
-// all_vol() = vC(); //Volume{vc()};
-// Printf("all_vol=", all_vol());
-// new_vol() = BooleanFragments{ Volume{all_vol()}; Delete; }{};
-// Printf("new_vol=", new_vol());
-
-// tol = ag/2;
-// pts_ag() = Point In BoundingBox {
-    // -ri2-tol,  -ag/2-tol,   -ri2-tol,
-    // 2*(ri2+tol), 2*(ag/2+tol), 2*(ri2+tol)};
+//Printf("winding_pri", winding_pri()); //0:20 1:21 2:22 3:23
 
 
-//Characteristic Length { pts_ag() } =  ag/4 ;
-//Characteristic Length { PointsOf{ Volume{26,27}; } } =  (ri3)/4;
-
-//xp0 = -0.022775; yp0 = 0.0141975 + rp; zp0 = 0; lcp = 1*rp;
-xp0 = 0.022775; yp0 = 0.0148; zp0 = 2*ro; lcp = 3*rp;
-// xs0 = 0.01781; ys0 = 0.01574; zs0 = 0; lcs0 = 3*rs;
-// xs1 = 0.02774; ys1 = 0.01574; zs1 = 0; lcs1 = 3*rs;
-xs0 = 0.01781; ys0 = 0.01686; zs0 = 2*ro; lcs0 = 2*rs;
-xs1 = 0.02774; ys1 = 0.01686; zs1 = 2*ro; lcs1 = 3*rs;
-
-//========================= Primary winding =============================//
-Macro DrawWinding
-// Need detail of the point {x0,y0,z0,lc0} and the radius
-// Need the NoOfTurn
-	pnt0[] = {}; lncir[] = {}; // clear array
-	pnt0[] += newp; Point(newp) = {x0,y0,z0,lc0}; // center
-	pnt0[] += newp; Point(newp) = {x0 + r,y0,z0,lc0};
-	pnt0[] += newp; Point(newp) = {x0,y0  + r,z0,lc0};
-	pnt0[] += newp; Point(newp) = {x0 - r,y0,z0,lc0};
-	pnt0[] += newp; Point(newp) = {x0,y0 - r,z0,lc0};
-	lncir[] += newl; Circle(newl) = {pnt0[1],pnt0[0],pnt0[2]};
-	lncir[] += newl; Circle(newl) = {pnt0[2],pnt0[0],pnt0[3]};
-	lncir[] += newl; Circle(newl) = {pnt0[3],pnt0[0],pnt0[4]};
-	lncir[] += newl; Circle(newl) = {pnt0[4],pnt0[0],pnt0[1]};
-	//llcir = newll; Line Loop(newll) = lncir[]; 
-	//surfcir = news; Plane Surface(news) = newll-1;
-	// Same concept from twist.geo using ThruSections
-
-	l~{1}() = lncir[];
-Printf("pnt0=", pnt0[]);	
-	//llcir~{1} = newll; 
-	llcir[] += newll; Line Loop(newll) = l~{1}();
-
-	//section = DefineNumber[20*NoOfTurn, Name "Parameters/Number of slices", Min 2, Max 10, Step 1];
-	//angle = DefineNumber[2*Pi*Np, Name "Parameters/Angle", Min 0, Max 2*Pi, Step 0.1];
-
-	For i In {2:section_straight}
-	  l~{i}() = Translate{0,0,-z0/(section_straight-1)}{ Duplicata{ Line{l~{i-1}()}; } };
-
-	  llcir[] += newll;
-	  Line Loop(newll) = l~{i}();
-	EndFor
-
-
-	llcir2[] += newll; Line Loop(newll) = l~{section_straight}();
-	l2~{1}() = l~{section_straight}();
-	
-		//For i In {section_straight+1:section_straight+section-1}
-	For i In {2:section}
-	  l2~{i}() = Translate{0,-(interwire+r*2+thick_insul*2)*NoOfTurn/(section-1),0}{ Duplicata{ Line{l2~{i-1}()}; } };
-	  Rotate {{0, 1, 0}, {0, 0, 0}, angle/(section-1)} { Line{l2~{i}()}; }
-	  //Line Loop(i) = l~{i}();
-	  //llcir~{i} = newll; 
-	  llcir2[] += newll;
-	  Line Loop(newll) = l2~{i}();
-	EndFor
-
-	llcir3[] += newll; Line Loop(newll) = l2~{section}();
-	l3~{1}() = l2~{section}();
-	
-	For i In {2:section_straight}
-	  l3~{i}() = Translate{z0/(section_straight-1),0,0}{ Duplicata{ Line{l3~{i-1}()}; } };
-
-	  llcir3[] += newll;
-	  Line Loop(newll) = l3~{i}();
-	EndFor
-//Printf("llcir_for=", l_1());	
-
-/* 	For i In {section_straight+1:section_straight+section-1}
-	//For i In {2:section-1}
-	  l~{i}() = Translate{0,-(interwire+r*2+thick_insul*2)*NoOfTurn/(section-1),0}{ Duplicata{ Line{l~{i-1}()}; } };
-	  Rotate {{0, 1, 0}, {0, 0, 0}, angle/(section-1)} { Line{l~{i}()}; }
-	  //Line Loop(i) = l~{i}();
-	  //llcir~{i} = newll; 
-	  llcir[] += newll;
-	  Line Loop(newll) = l~{i}();
-	EndFor */
-
-
-
-Return
-
-// The number of section cannot be too low otherwise the spiral will deviate from the path and hit the core
-section_straight = 5;
-//================ Primary winding ===========================//
-If (1)
-x0 = xp0; y0 = yp0; z0 = zp0; lc0 = lcp; r = rp;
-section = 15*Np; NoOfTurn = Np; interwire = interwire_pri; angle = Pi*(2*Np-0.5);
-llcir[] = {};
-llcir2[] = {};
-llcir3[] = {};
-Printf("llcir=", llcir());
-Call DrawWinding;
-Printf("llcir=", llcir());
-winding_pris = newv;
-ThruSections(winding_pris) = llcir[];
-winding_pric = newv;
-ThruSections(winding_pric) = llcir2[];
-winding_prie = newv;
-ThruSections(winding_prie) = llcir3[];
-
-//Printf("winding_pri=", winding_pri());
-EndIf
-
-If (1)
-//================ Secondary winding 0 ===========================//
-x0 = xs0; y0 = ys0; z0 = zs0; lc0 = lcs0; r = rs;
-
-//Ns = 4;
-section = 15*Ns; NoOfTurn = Ns; interwire = interwire_sec; angle = Pi*(2*Ns-0.5);
-llcir[] = {};
-llcir2[] = {};
-llcir3[] = {};
-Call DrawWinding;
-//winding_sec0 = newv;
-winding_secs0 = newv;
-ThruSections(winding_secs0) = llcir[];
-winding_secc0 = newv;
-ThruSections(winding_secc0) = llcir2[];
-winding_sece0 = newv;
-ThruSections(winding_sece0) = llcir3[];
-
-//Characteristic Length { PointsOf{ Volume{winding_sec0}; } } = lcs0*1;
-EndIf 
-	
-//================ Secondary winding 1 ===========================//
-x0 = xs1; y0 = ys1; z0 = zs1; lc0 = lcs0; r = rs;
-
-//NoOfTurn = Ns; interwire = interwire_sec; angle = -2*Pi*Ns;
-//Ns = 4;
-section = 15*Ns; NoOfTurn = Ns; interwire = interwire_sec; angle = Pi*(2*Ns-0.5);
-llcir[] = {};
-llcir2[] = {};
-llcir3[] = {};
-Call DrawWinding;
-//winding_sec1 = newv;
-//ThruSections(winding_sec1) = llcir[];
-winding_secs1 = newv;
-ThruSections(winding_secs1) = llcir[];
-winding_secc1 = newv;
-ThruSections(winding_secc1) = llcir2[];
-winding_sece1 = newv;
-ThruSections(winding_sece1) = llcir3[];
-
-winding_pri() = BooleanFragments{ Volume{winding_pris,winding_pric,winding_prie}; Delete;}{};
-winding_sec0() = BooleanFragments{ Volume{winding_secs0,winding_secc0,winding_sece0}; Delete;}{};
-winding_sec1() = BooleanFragments{ Volume{winding_secs1,winding_secc1,winding_sece1}; Delete;}{};
-Printf("winding_sec1=", winding_sec1());
-Printf("winding_sece1=", winding_sece1);
-Characteristic Length { PointsOf{ Volume{winding_pri()}; } } = 2*lcs0;
-Characteristic Length { PointsOf{ Volume{winding_sec0()}; } } = 3*lcs0;
-Characteristic Length { PointsOf{ Volume{winding_sec1()}; } } = 3*lcs0;
-Characteristic Length { PointsOf{ Volume{winding_sece1()}; } } = 2*lcs0;
-
-	
-//Characteristic Length { PointsOf{ Volume{winding_pri()}; } } = lcp;
-
-
-
-
-// out[1] is the volume
-// out() = Extrude { {0,-(interwire_pri+rp)*2,0}, {0,1,0} , {0,0,0} , 360*2* Pi / 180 } {
-  // Surface{surfcir}; Layers{3}; // Recombine;
-// };
-// out[] = Extrude {0,0,-2*rp}{
-  // Surface{surfcir}; Layers{10}; Recombine;
-// };
-
-
-// Printf("out = ",out());
-//Printf("vC=", vC()); //0:20 1:21 2:22 3:23
-//airbnd = newv;
-//Sphere(airbnd) = {0, 0, 0, 0.3/2, -Pi/2, Pi/2, 2*Pi};
-//Box(1311) = {-zs0, -zs0, zs0, 2*zs0, 2*zs0, -2*zs0};
-//Characteristic Length { PointsOf{ Volume{airbnd}; } } = lcinf;
-//vC() = BooleanFragments{ Volume{vC()}; Delete; }{ Volume{winding_pri}; Delete; };
-//vC() = BooleanFragments{ Volume{vC()}; Delete; }{ Volume{winding_sec1}; Delete; };
-//air() = BooleanDifference{ Volume{airbnd()}; Delete;}{ Volume{vC(),winding_pri}; };
-//air() = BooleanDifference{ Volume{airbnd()}; Delete;}{ Volume{winding_sec0}; };
-//air() = BooleanDifference{ Volume{airbnd()}; Delete;}{ Volume{winding_sec1}; };
-//Printf("vC2=", vC()); //0:20 1:21 2:22 3:23
-//Printf("vC_cen", vC_cen()); //0:20 1:21 2:22 3:23
-//Printf("air=", air());
-
-// vC() = BooleanFragments{ Volume{vC()}; Delete; }{ Volume{winding_pri}; Delete; };
-// Printf("vc = ", vC()); 
-// out[] = Extrude {0,-2*Pi*xp0,0}{
-  // Surface{surfcir}; Layers{10}; Recombine;
-// };
-
-
-
-
-
-/* 
-//-------------------------------
-Recursive Color SteelBlue {Volume{vC({0,1,2})};}
-Recursive Color Red {Volume{vC({3})};}
-
-bnd_vCore() = Unique(Abs(Boundary{Volume{20};}));
-Physical Surface(1e4) = bnd_vCore(); */
-
-
-
-// c0 = newreg; 
-// Circle(c0) = {0.022775, 0.0141975, -0, 0.00215, 0, 2*Pi};
-// llcir = newll; Line Loop(newll) = c0; 
-// surfcir = news; Plane Surface(news) = newll-1;
-// pntcir() = PointsOf{ Surface{surfcir}; };
-// Printf("",pntcir());
-
-
-//+
 
 
