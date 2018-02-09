@@ -21,17 +21,12 @@ Secondary1 = #SECONDARY1;
 
 
 
-Domain = Region[ {Primary} ];
+Domain = Region[ {Primary,Secondary0,Secondary1} ];
 
 }
 
 Function{
 	
-  // DefineConstant[
-  
-  // Ap = (interwire_pri+rp*2+thick_insul*2)*Np/(10*Np-1),
-  // As = (interwire_pri+rp*2+thick_insul*2)*Np/(10*Np-1)
-  // ];
     // vDir[] = (
       // (Fabs[X[]]<=wcoreE && Z[]>= Lz/2) ? Vector [1, 0, 0]:
       // (Fabs[X[]]<=wcoreE && Z[]<=-Lz/2) ? Vector [ -1, 0, 0]:
@@ -42,16 +37,16 @@ Function{
       // (X[]<-wcoreE && Z[]>Lz/2) ? Vector [Sin[Atan2[Z[]-Lz/2,X[]+wcoreE]#1], 0, -Cos[#1]]:
       // Vector [Sin[Atan2[Z[]+Lz/2,X[]+wcoreE]#1], 0, -Cos[#1]] );
     Ap = -(interwire_pri+rp*2+thick_insul*2)*Np/(10*Np-1);
-    // As = (interwire_sec+rs*2+thick_insul*2)*Ns/(12*Ns-1);
+    As = (interwire_sec+rs*2+thick_insul*2)*Ns/(12*Ns-1);
 	vDir[Primary] = ( (Y[] >= yp0-rp && Z[] >=0) ? Vector [0,0,-1]:
 		(Y[]<=yp0+rp-(interwire_pri+rp*2+thick_insul*2)*Np && X[] >=0) ? Vector [1,0,0]:
 		Unit [ Vector [ Z[], -Ap ,-X[] ] ] );
-		
-		
-		//Unit [ Vector [ Z[], -Ap ,-X[] ] ];
-	//vDir[Secondary0] = Unit [ Vector [ Z[], -As ,-X[] ] ];
-	//vDir[] = Vector [ -Z[], Ap ,X[] ] ;
-	//vDir[] = 1;
+	vDir[Secondary0] = ( (Y[] >= ys0-rs && Z[] >=0) ? Vector [0,0,-1]:
+		(Y[]<=ys0+rs-(interwire_sec+rs*2+thick_insul*2)*Ns && X[] >=0) ? Vector [1,0,0]:
+		Unit [ Vector [ Z[], -As ,-X[] ] ] );
+    vDir[Secondary1] = ( (Y[] >= ys0-rs && Z[] >=0) ? Vector [0,0,-1]:
+		(Y[]<=ys0+rs-(interwire_sec+rs*2+thick_insul*2)*Ns && X[] >=0) ? Vector [1,0,0]:
+		Unit [ Vector [ Z[], -As ,-X[] ] ] );		
 }
 
 

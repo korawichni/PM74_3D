@@ -181,7 +181,7 @@ Printf("newv", newv); //0:20 1:21 2:22 3:23
 air_around = newv;
 //zs0 = zs0*1.5;
 Box(air_around) = {-zs0, -zs0, zs0, 2*zs0, 2*zs0, -2*zs0};
-Characteristic Length { PointsOf{ Volume{air_around}; } } = 2*lcs0;
+Characteristic Length { PointsOf{ Volume{air_around}; } } = 8*lcs0;
 
 
 vol_model() = BooleanFragments{ Volume{winding_pri(),winding_sec0(),winding_sec1(),vC(),air_around}; Delete; }{};
