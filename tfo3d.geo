@@ -1,4 +1,7 @@
 // geometry of winding and the mesh are ok
+
+Include "tfo3d_data.geo";
+
 Geometry.NumSubEdges = 100; // nicer display of curve
 mm=1e-3;
 ro  = (74-2.5)/2*mm; // outer-most radius
@@ -10,11 +13,8 @@ h  = (40.7+0.8)*mm; // bobbin height
 ho = 59*mm; // Height
 
 ag=3.8*mm;
-// initial coordinate of the center of the coil in XY plane, where Y is height
-rp = 0.0043/2; interwire_pri = 0.0035;//0.005065; // 0.003;// modified because the cross section shows 5 circles instead of 4 circles
-rs = 0.00252/2; interwire_sec = 0.003;//0.003676; //0.003;//
-thick_insul = 5e-5;
-Np = 4; Ns = 6;
+
+
 lcs0 = 3*rs;
 lcinf = ho*1;
 
@@ -30,25 +30,22 @@ Macro DrawWinding
 
   // Need detail of the point {x0,y0,z0,lc0} and the radius
   // Need the NoOfTurn
-  
+
   // Straight part: cable(0)
   surf_init(0) =news; Disk(news) = {x0, y0, z0, r};
   aux()   = Extrude{0.,0.,-z0}{ Surface{surf_init(0)}; Layers{_use_layers}; };
-  //cables(0) = aux(1); // Get the volume from aux(1)
   cable() += aux(1); // Get the volume from aux(1)
 	Printf('aux=',aux());
-	
+
   // Top extruded surface is aux(0)
-  aux_l() = Boundary{ Surface{aux(0)}; }; // Get the line loop 
-Printf('aux_l=',aux_l());
+  aux_l() = Boundary{ Surface{aux(0)}; }; // Get the line loop
+//Printf('aux_l=',aux_l());
   llspiral(0) = newll; Line Loop(newll) = aux_l(); // preparing to use thrusection
 
-Printf('llspiral=',llspiral());
+//Printf('llspiral=',llspiral());
 
   For i In {1:section-1}
     aux_l() = Translate{0,-(interwire+r*2+thick_insul*2)*NoOfTurn/(section-1),0}{ Duplicata{ Line{aux_l()}; } };
-	//Coherence;
-	//Printf('aux_l=',aux_l());
     Rotate {{0, 1, 0}, {0, 0, 0}, angle/(section-1)} { Line{aux_l()}; }
     llspiral() += newll; Line Loop(newll) = aux_l(); // collect the line loop to use thrusection
 
@@ -64,7 +61,7 @@ Printf('llspiral=',llspiral());
   Printf('length_llspiral=',#llspiral());
   Printf('cable=',cable());
 
- 
+
   // Ending straight part
   surf_init(1) = news; Plane Surface(news) = llspiral(#llspiral()-1);
   aux2() = Extrude{z0,0.,0.}{ Surface{surf_init(1)}; Layers{_use_layers}; };
@@ -76,7 +73,7 @@ Printf('llspiral=',llspiral());
 	    //Printf('cables=',cables());
 		Printf('vcable = ',vcable());
   //BooleanUnion{ Volume{cable()}; }{}
-  //Delete{ Surface{1}; }  
+  //Delete{ Surface{1}; }
 Return
 
 //======================================================================================
@@ -109,7 +106,7 @@ nn = nns;
 
 Call DrawWinding;
 winding_sec0() = vcable();
-//BooleanUnion{ Volume{winding_sec0()}; }{} 
+//BooleanUnion{ Volume{winding_sec0()}; }{}
 
 //================ Secondary winding 1 ===========================//
 x0 = xs1; y0 = ys1; z0 = zs1; r = rs;
@@ -124,23 +121,6 @@ winding_sec1() = vcable();
  //all_vol() = Volume '*';
  //Characteristic Length { PointsOf{ Volume{all_vol()}; } } = lcs0;
  Characteristic Length { PointsOf{ Volume{winding_sec0(),winding_sec1(),winding_pri()}; } } = lcs0;
-  // Printf('all_vol=',all_vol());
-
-// Printf('sec0=',winding_sec0());
-// all_vol() -= {/*winding_pri(),*/winding_sec0(), winding_sec1()}; // to find the redundant volume = all - needed volumes
-  // Printf('all_vol_after1=',all_vol());
-// Recursive Delete { Volume{all_vol()}; } // get rid of the redundant volume
-  // Printf('all_vol_after2=',all_vol());
-
-  
-  
-  
-  
-  //winding_pri() = BooleanUnion{ Volume{winding_sec0()}; }{};
-  
-Recursive Color Red  { Volume{winding_pri()};}
-Recursive Color Green{ Volume{winding_sec0()};}
-Recursive Color Cyan { Volume{winding_sec1()};}
 
 
 //========================== Core ==================================//
@@ -170,9 +150,9 @@ Translate {0, -ho/2, ro + ri2} {Volume{aux_[0]}; }
 
 
 //Translate {0, -ho/2, ro + ri2} {Volume{aux_[2]}; }
-//Printf("aux_=", aux_[]); 
+//Printf("aux_=", aux_[]);
 aux_[] += Symmetry {1, 0, 0, 0} { Duplicata{ Volume{aux_[0]}; } };
-//Printf("aux_=", aux_[]); 
+//Printf("aux_=", aux_[]);
 
 aux_[] += Symmetry {0, 0, 1, 0} { Duplicata{ Volume{aux_[]}; } };
 Rotate {{0, 1, 0}, {0, 0, 0}, Pi/2*0 - 0.1 + 1*Atan(ro*Tan(Pi/3)/(ro + ri2))} {Volume{aux_()}; }
@@ -216,15 +196,42 @@ air_around = newv;
 //zs0 = zs0*1.5;
 Box(air_around) = {-zs0, -zs0, zs0, 2*zs0, 2*zs0, -2*zs0};
 Characteristic Length { PointsOf{ Volume{air_around}; } } = 2*lcs0;
-//air() = BooleanDifference{ Volume{air_around()}; Delete;}{ Volume{vC()}; };
 
-//air() = BooleanDifference{ Volume{air_around}; Delete;}{ Volume{winding_pri()}; };  // cannot use boolean difference
-//air() = BooleanDifference{ Volume{air()}; Delete;}{ Volume{winding_sec0()}; };
-//,winding_pri(),winding_sec0(),winding_sec1()
-//vol_model() = BooleanDifference{ Volume{air_around}; Delete; }{ Volume{vC(),winding_pri(),winding_sec0(),winding_sec1()}; };
 
 vol_model() = BooleanFragments{ Volume{winding_pri(),winding_sec0(),winding_sec1(),vC(),air_around}; Delete; }{};
+vol_model() -= {winding_pri(),winding_sec0(),winding_sec1()};
 
 Printf("volume model", vol_model()); //0:20 1:21 2:22 3:23
 
 
+
+
+
+
+nn = #vol_model()-1;
+vol_core()= vol_model({1,4,6});
+vol_model() -= vol_core();
+vol_air() = vol_model();
+
+
+
+Physical Volume ("Primary", PRIMARY) = winding_pri();
+Physical Volume ("Secondary 0",SECONDARY0) = winding_sec0();
+Physical Volume ("Secondary 1", SECONDARY1) = winding_sec1();
+Physical Volume ("Air", AIR) = vol_air();
+Physical Volume ("Core", CORE) = vol_core();
+
+Physical Surface ("Inner surface primary", IN_PRI) = {93};
+Physical Surface ("Outer surface primary", OUT_PRI) = {94};
+
+
+// For aestetics
+Recursive Color SkyBlue { Volume{vol_air()};}
+Recursive Color SteelBlue { Volume{vol_core()};}
+
+Recursive Color Red  { Volume{winding_pri()};}
+Recursive Color Green{ Volume{winding_sec0()};}
+Recursive Color Cyan { Volume{winding_sec1()};}
+
+
+Cohomology(1) {{PRIMARY},{IN_PRI, OUT_PRI}};
