@@ -3,16 +3,7 @@
 Include "tfo3d_data.geo";
 
 Geometry.NumSubEdges = 100; // nicer display of curve
-mm=1e-3;
-ro  = (74-2.5)/2*mm; // outer-most radius
-ri1 = (57.5+1.8)/2*mm + 1*mm;  // second-most radius //add to mesh easily
-ri2 = (29.5-1)/2*mm; // center-post leg's radius
-ri3 = (5.4+0.3)/2*mm; // inner-most hole
 
-h  = (40.7+0.8)*mm; // bobbin height
-ho = 59*mm; // Height
-
-ag=3.8*mm;
 
 
 lcs0 = 3*rs;
@@ -78,12 +69,7 @@ Return
 
 //======================================================================================
 
-//xp0 = -0.022775; yp0 = 0.0141975 + rp; zp0 = 0; lcp = 1*rp;
-xp0 = 0.022775; yp0 = 0.0148+0.001; zp0 = 2*ro; lcp = 3*rp;
-// xs0 = 0.01781; ys0 = 0.01574; zs0 = 0; lcs0 = 3*rs;
-// xs1 = 0.02774; ys1 = 0.01574; zs1 = 0; lcs1 = 3*rs;
-xs0 = 0.01781; ys0 = 0.01686; zs0 = 2*ro; lcs0 = 2*rs;
-xs1 = 0.02774; ys1 = 0.01686; zs1 = 2*ro; lcs1 = 3*rs;
+
 
 // The number of section cannot be too low otherwise the spiral will deviate from the path and hit the core
 
