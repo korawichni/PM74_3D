@@ -6,7 +6,7 @@ Geometry.NumSubEdges = 100; // nicer display of curve
 
 
 
-lcs0 = 3*rs;
+lcs0 = 1*rs;
 lcinf = ho*1;
 
 
