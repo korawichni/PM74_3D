@@ -134,17 +134,21 @@ Translate {0, -ho/2, ro + ri2} {Volume{aux_[0]}; }
 
 //- Atan(ro*Tan(Pi/3)/(ro + ri2))
 
-
-//Translate {0, -ho/2, ro + ri2} {Volume{aux_[2]}; }
-//Printf("aux_=", aux_[]);
 aux_[] += Symmetry {1, 0, 0, 0} { Duplicata{ Volume{aux_[0]}; } };
-//Printf("aux_=", aux_[]);
 
+rot_angle = Pi/2*0 - 0.1 + 1*Atan(ro*Tan(Pi/3)/(ro + ri2));
 aux_[] += Symmetry {0, 0, 1, 0} { Duplicata{ Volume{aux_[]}; } };
-Rotate {{0, 1, 0}, {0, 0, 0}, Pi/2*0 - 0.1 + 1*Atan(ro*Tan(Pi/3)/(ro + ri2))} {Volume{aux_()}; }
+Rotate {{0, 1, 0}, {0, 0, 0}, rot_angle} {Volume{aux_()}; }
+
+// Hole for clipping
+aux_1[0] = newv;
+Cylinder(aux_1[0]) = {ro, ho/2, -0, 0, -ho, 0, ro_clip, 2*Pi};
+aux_1[] += newv;
+Cylinder(aux_1[1]) = {-ro, ho/2, -0, 0, -ho, 0, ro_clip, 2*Pi};
+Rotate {{0, 1, 0}, {0, 0, 0}, rot_angle} {Volume{aux_1()}; }
 
 // Cut off the core
-vC_out() = BooleanDifference{ Volume{vC_out()}; Delete; }{ Volume{aux_()}; Delete; }; // Volume{aux_()};
+vC_out() = BooleanDifference{ Volume{vC_out()}; Delete; }{ Volume{aux_(),aux_1[]}; Delete; }; // Volume{aux_()};
 
 // Airgap cylinder
 vAg=newv; Cylinder(newv) = {0, -ag/2, 0, 0, ag, 0, ri2, 2*Pi};
@@ -190,26 +194,45 @@ vol_model() -= {winding_pri(),winding_sec0(),winding_sec1()};
 Printf("volume model", vol_model()); //0:20 1:21 2:22 3:23
 
 
-
-
-
-
 nn = #vol_model()-1;
 vol_core()= vol_model({1,4,6});
 vol_model() -= vol_core();
 vol_air() = vol_model();
 
+Printf("vol_air", vol_air()); //0:20 1:21 2:22 3:23
+//Characteristic Length { PointsOf{ Volume{vol_air(0:#vol_air()-2)}; } } = 0.5*lcs0;
+
+nnp = #winding_pri()-1;
+Physical Volume ("Primary helix", PRIMARY+0) = winding_pri({1:nnp-1});
+Physical Volume ("Primary in",    PRIMARY+1) = winding_pri(0);
+Physical Volume ("Primary out",   PRIMARY+2) = winding_pri(nnp);
 
 
-Physical Volume ("Primary", PRIMARY) = winding_pri();
-Physical Volume ("Secondary 0",SECONDARY0) = winding_sec0();
-Physical Volume ("Secondary 1", SECONDARY1) = winding_sec1();
+nns0 = #winding_sec0()-1;
+Physical Volume ("Secondary 0 helix",SECONDARY0+0) = winding_sec0({1:nns0-1});
+Physical Volume ("Secondary 0 in",   SECONDARY0+1) = winding_sec0(0);
+Physical Volume ("Secondary 0 out",  SECONDARY0+2) = winding_sec0(nns0);
+
+nns1 = #winding_sec1()-1;
+Physical Volume ("Secondary 1 helix",SECONDARY1+0) = winding_sec1({1:nns1-1});
+Physical Volume ("Secondary 1 in",   SECONDARY1+1) = winding_sec1(0);
+Physical Volume ("Secondary 1 out",  SECONDARY1+2) = winding_sec1(nns1);
+
 Physical Volume ("Air", AIR) = vol_air();
 Physical Volume ("Core", CORE) = vol_core();
 
-Physical Surface ("Inner surface primary", IN_PRI) = {93};
-Physical Surface ("Outer surface primary", OUT_PRI) = {94};
+// Manually fill in
+Physical Surface ("In surface primary", IN_PRI) = {97};
+Physical Surface ("Out surface primary", OUT_PRI) = {98};
 
+Physical Surface ("In surface secondary0", IN_SEC0) = {99};
+Physical Surface ("Out surface secondary0", OUT_SEC0) = {100};
+
+Physical Surface ("In surface secondary1", IN_SEC1) = {101};
+Physical Surface ("Outsurface secondary1", OUT_SEC1) = {102};
+
+
+Physical Surface ("Air boundary", SURF_AIROUT) = {85,86,87,88,89,90};
 
 // For aestetics
 Recursive Color SkyBlue { Volume{vol_air()};}
@@ -220,4 +243,5 @@ Recursive Color Green{ Volume{winding_sec0()};}
 Recursive Color Cyan { Volume{winding_sec1()};}
 
 
-Cohomology(1) {{PRIMARY},{IN_PRI, OUT_PRI}};
+//Cohomology(1) {{PRIMARY},{IN_PRI, OUT_PRI}};
+
